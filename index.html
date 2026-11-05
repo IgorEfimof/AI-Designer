@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon5.png">
+    <meta name="apple-mobile-web-app-title" content="Photostek">
+    <meta name="theme-color" content="#060b14">
 <title>AI Designer Pro — дизайнер карточек товаров</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -131,12 +134,15 @@ main{padding-top:var(--head);min-height:100vh}
 .layer-row{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent;font-size:13px}
 .layer-row:hover{background:var(--panel2)}
 .layer-row.sel{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+.layer-row.locked{opacity:.55}
+.layer-row.locked .lr-name{font-style:italic}
 .layer-row .lr-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .layer-row .lr-type{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 .layer-row .lr-btns{display:flex;gap:2px}
 .mini-btn{border:0;background:transparent;color:var(--muted);width:22px;height:22px;border-radius:7px;font-size:12px;font-weight:800;line-height:1}
 .mini-btn:hover{background:var(--panel2);color:var(--text)}
 .mini-btn.del:hover{color:var(--danger)}
+.mini-btn.lock.on{color:var(--warn)}
 #propsPanel{padding:12px 14px 24px}
 .prop-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:14px 0 6px}
 .prop{display:grid;grid-template-columns:88px 1fr;align-items:center;gap:8px;margin:7px 0}
@@ -147,6 +153,16 @@ main{padding-top:var(--head);min-height:100vh}
 .prop input[type=range]{width:100%;accent-color:var(--accent)}
 .prop textarea{width:100%;background:var(--input);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:13px;min-height:64px;resize:vertical;outline:none}
 .zoom-label{font-size:11px;color:var(--muted);text-align:center;padding:2px}
+
+/* ===== ласо/палочка: панель действий выделения ===== */
+.selbar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:8px 10px;display:none;flex-wrap:wrap;gap:8px;align-items:center;z-index:7;max-width:calc(100% - 24px);justify-content:center}
+.selbar.on{display:flex}
+.selbar .grp{display:flex;gap:4px;align-items:center}
+.selbar .grp .btn{padding:6px 10px;font-size:12.5px;border-radius:9px}
+.selbar .tolerance{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);min-width:150px}
+.selbar .tolerance input{width:90px;accent-color:var(--accent)}
+.selbar .sep{width:1px;height:22px;background:var(--border)}
+.selbar .info{font-size:12.5px;color:var(--muted);padding:0 4px}
 
 /* ===== export ===== */
 .fmt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
@@ -211,6 +227,9 @@ main{padding-top:var(--head);min-height:100vh}
   .ed-side.open{transform:none}
   .api-pill span.txt{display:none}
   .wrap{padding:16px 12px 80px}
+  .selbar{bottom:6px;padding:6px 8px}
+  .selbar .tolerance{min-width:110px}
+  .selbar .tolerance input{width:60px}
 }
 </style>
 </head>
@@ -311,6 +330,11 @@ main{padding-top:var(--head);min-height:100vh}
       <button class="tbtn" id="addEllipse">+ Круг</button>
       <button class="tbtn" id="addPhoto">+ Фото</button>
       <button class="tbtn" id="maskBtn" title="Обрезать фото по форме фигуры на холсте. Повторное нажатие снимает маску">Маска</button>
+      <button class="tbtn" id="frameBtn" title="Вставить фото в рамку: выберите фото, нажмите, затем кликните по рамке/кругу — фото обрежется по маске. Esc — отмена.">В<br>рамку</button>
+      <div class="tsep"></div>
+      <button class="tbtn" id="lassoTool" title="Свободное выделение области для удаления">&#9998;<br>Лассо</button>
+      <button class="tbtn" id="wandTool" title="Волшебная палочка — выделить по цвету и удалить фон">&#10024;<br>Палочка</button>
+      <button class="tbtn" id="eraseReset" title="Сбросить всё удаление фона у выбранного фото">&#8635;<br>Фон</button>
       <div class="tsep"></div>
       <button class="tbtn" id="undoBtn" title="Отменить (Ctrl+Z)">&#8630;<br>Отмена</button>
       <button class="tbtn" id="redoBtn" title="Повторить (Ctrl+Y)">&#8631;<br>Повтор</button>
@@ -319,6 +343,8 @@ main{padding-top:var(--head);min-height:100vh}
       <button class="tbtn" id="zoomIn" title="Увеличить">+</button>
       <button class="tbtn" id="zoomFit">По<br>размеру</button>
       <button class="tbtn" id="gridBtn">Сетка</button>
+      <button class="tbtn" id="spiralBtn" title="Спираль Фибоначчи (золотое сечение). Нажатие — вкл/выкл, Alt+клик — повернуть на 90°.">Спираль<br>Фибо</button>
+      <button class="tbtn" id="goldenBtn" title="Золотое сечение: φ-сетка строго вписана в холст. Нажатие — вкл/выкл, Alt+клик — повернуть на 90°.">Золотое<br>сечение</button>
       <div class="tsep"></div>
       <button class="tbtn side-btn" id="sideBtn">Панель</button>
       <button class="tbtn" id="toExportBtn">Экспорт<br>&rarr;</button>
@@ -327,6 +353,27 @@ main{padding-top:var(--head);min-height:100vh}
     <div class="ed-canvas-wrap" id="edCanvasWrap">
       <canvas id="edCanvas"></canvas>
       <textarea id="textEdit" spellcheck="false"></textarea>
+
+      <!-- Панель выделения (лассо / палочка) -->
+      <div class="selbar" id="selbar">
+        <div class="grp">
+          <button class="btn sm" id="selErase" title="Стереть выделенные пиксели">Удалить</button>
+          <button class="btn sm" id="selKeep" title="Оставить только выделенные пиксели">Оставить</button>
+          <button class="btn sm" id="selInvert" title="Инвертировать выделение">Инверсия</button>
+          <button class="btn sm" id="selClear" title="Снять выделение">Снять</button>
+        </div>
+        <span class="sep"></span>
+        <div class="tolerance" id="tolWrap">
+          <span>Допуск</span>
+          <input type="range" id="tolRange" min="1" max="120" value="32">
+          <b id="tolVal">32</b>
+        </div>
+        <span class="sep"></span>
+        <span class="info" id="selInfo">—</span>
+        <span class="sep"></span>
+        <button class="btn sm" id="selExit" title="Выйти из режима выделения">Выйти</button>
+      </div>
+
       <div class="empty" id="edEmpty" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel2);z-index:5">
         Макета пока нет.<br>Сгенерируйте композиции в Студии — или соберите карточку с нуля кнопками слева.
         <button class="btn primary" data-goto="studio">Перейти в Студию</button>
@@ -467,13 +514,13 @@ const TYPE_LABEL={text:'Текст',badge:'Бейдж',rect:'Рамка',ellipse
 
 /* ---- глобальное состояние ---- */
 const App={
-  photos:[],            // [{id,name,src}]
-  assets:{},            // id -> dataURL (общий реестр изображений)
-  analysis:null,        // результат AI-анализа фото
+  photos:[],
+  assets:{},
+  analysis:null,
   fields:{name:'',price:'',oldPrice:'',badge:'',brand:'',features:''},
-  docs:[],              // сгенерированные композиции [{name,doc}]
-  doc:null,             // текущий документ в редакторе
-  sel:null,             // выбранный слой
+  docs:[],
+  doc:null,
+  sel:null,
   history:[],redo:[],
   zoom:.4,variantSeed:0,
   projectId:null,
@@ -551,6 +598,8 @@ function switchView(v){
   if(v==='projects')renderProjectsView();
   if(v==='export')renderExportView();
   if(v==='settings')populateSettingsForm();
+  if(v!=='editor')exitSelectMode(true);
+  exitFrameMode(true);
   closeSide();
   scheduleAutosave();
 }
@@ -760,7 +809,6 @@ const AI={
     const e=new Error(msg);e.status=r.status;return e;
   },
 
-  /* --- проверка подключения --- */
   async test(){
     const c=this.cfg();
     if(!c.apiKey)return{ok:false,error:'Не задан API-ключ'};
@@ -780,7 +828,6 @@ const AI={
         if(!r.ok)throw await this._httpErr(r);
         return{ok:true,ms:Math.round(performance.now()-t0),info:'Anthropic: подключение установлено'};
       }
-      /* OpenAI-совместимые: openai, openrouter, proxyapi, vsegpt, custom */
       try{
         const r=await this._fetch(base+'/models',{headers:{'Authorization':'Bearer '+c.apiKey}});
         if(r.ok){
@@ -789,7 +836,7 @@ const AI={
           return{ok:true,ms:Math.round(performance.now()-t0),info:'Подключено (через /models'+(n?', моделей: '+n:'')+')'};
         }
         if(![404,405,501].includes(r.status))throw await this._httpErr(r);
-      }catch(e){if(e.status)throw e;/* /models может отсутствовать — пробуем живой запрос */}
+      }catch(e){if(e.status)throw e;}
       const r2=await this._fetch(base+'/chat/completions',{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.apiKey},
@@ -800,7 +847,6 @@ const AI={
     }catch(e){return{ok:false,error:e.message||String(e)};}
   },
 
-  /* --- универсальный вызов модели --- */
   async chat(o){
     const c=this.cfg();
     if(!this.isReady())throw new Error('AI не настроен. Откройте «Настройки AI», выберите провайдера и вставьте ключ.');
@@ -856,13 +902,11 @@ const AI={
     return text;
   },
 
-  /* --- анализ фото (vision) --- */
   async analyzePhoto(dataURL){
     const small=await downscaleDataURL(dataURL,768);
     const text=await this.chat({user:ANALYZE_PROMPT,images:[small],maxTokens:600});
     return extractJSON(text);
   },
-  /* --- генерация продающих текстов --- */
   async generateCopy(fields){
     const text=await this.chat({user:copyPrompt(fields),maxTokens:700});
     return extractJSON(text);
@@ -889,7 +933,6 @@ function mixHex(h1,h2,t){
   return '#'+c.map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 const inkFor=bg=>hexLum(bg)>.6?'#171a21':'#ffffff';
-const mutedFor=bg=>hexLum(bg)>.6?'#6a7180':'#9aa2b1';
 
 function roundRectPath(ctx,x,y,w,h,r){
   r=Math.max(0,Math.min(r,w/2,h/2));
@@ -908,7 +951,6 @@ function wrapLines(ctx,text,maxW){
     if(!words.length){out.push('');return;}
     let line='';
     for(let w of words){
-      /* сверхдлинное слово — жёсткий перенос */
       while(ctx.measureText(w).width>maxW&&w.length>2){
         let cut=w.length-1;
         while(cut>1&&ctx.measureText(line?line+' '+w.slice(0,cut):w.slice(0,cut)).width>maxW)cut--;
@@ -944,6 +986,39 @@ function clipByMaskLayer(ctx,M){
   ctx.clip();
   ctx.rotate(-mrot);ctx.translate(-mcx,-mcy);
 }
+
+/* --- Лассо/палочка: применить eraseMask к фото --- */
+const eraseMaskCache=new Map();
+function getEraseMask(src){
+  if(!src)return null;
+  if(!eraseMaskCache.has(src)){const im=new Image();im.src=src;eraseMaskCache.set(src,im);}
+  return eraseMaskCache.get(src);
+}
+function drawPhotoWithMask(ctx,L,x,y,w,h){
+  const im=getImg(S(L.src));
+  if(!im.complete||!im.naturalWidth){im.onload=()=>requestRender();return;}
+  const iw=im.naturalWidth,ih=im.naturalHeight;
+  const s=Math.max(w/iw,h/ih)*(L.zoom||1);
+  const dw=iw*s,dh=ih*s;
+  const px=x+(w-dw)/2+(L.offX||0),py=y+(h-dh)/2+(L.offY||0);
+  const tmp=document.createElement('canvas');
+  tmp.width=Math.max(1,Math.ceil(w));tmp.height=Math.max(1,Math.ceil(h));
+  const tctx=tmp.getContext('2d');
+  tctx.drawImage(im,px,py,dw,dh);
+  if(L.eraseMask){
+    const m=getEraseMask(L.eraseMask);
+    if(m.complete&&m.naturalWidth){
+      tctx.save();
+      tctx.globalCompositeOperation='destination-out';
+      tctx.drawImage(m,px-x,py-y,dw,dh);
+      tctx.restore();
+    }else{
+      m.onload=()=>requestRender();
+    }
+  }
+  ctx.drawImage(tmp,x,y);
+}
+
 function drawLayer(ctx,L){
   ctx.save();
   ctx.globalAlpha=(L.opacity==null?1:L.opacity)*(L.visible===false?0:1);
@@ -976,7 +1051,11 @@ function drawLayer(ctx,L){
     }else{
       roundRectPath(ctx,x,y,w,h,r);ctx.clip();
     }
-    drawCoverImg(ctx,S(L.src),x,y,w,h,L.zoom||1,L.offX||0,L.offY||0);
+    if(L.eraseMask){
+      drawPhotoWithMask(ctx,L,x,y,w,h);
+    }else{
+      drawCoverImg(ctx,S(L.src),x,y,w,h,L.zoom||1,L.offX||0,L.offY||0);
+    }
     ctx.restore();
   }else if(L.type==='badge'){
     setFont(ctx,L);
@@ -1025,7 +1104,6 @@ function renderDocument(ctx,doc){
   ctx.restore();
 }
 function docTextBounds(doc){
-  /* выходят ли слои за пределы документа */
   let over=0;
   for(const L of doc.layers){
     if(L.visible===false)continue;
@@ -1036,7 +1114,7 @@ function docTextBounds(doc){
 
 /* ================= Smart Layout: 4 композиции ================= */
 function mk(L){
-  return Object.assign({id:uid(),opacity:1,rotation:0,visible:true},L);
+  return Object.assign({id:uid(),opacity:1,rotation:0,visible:true,locked:false},L);
 }
 function buildPalette(analysis,seed){
   const cols=(analysis&&Array.isArray(analysis.colors)?analysis.colors:[]).filter(c=>/^#[0-9a-f]{6}$/i.test(c));
@@ -1068,23 +1146,10 @@ function photoLayer(d,x,y,w,h,radius){
   if(!d.src)return mk({type:'rect',x:x,y:y,w:w,h:h,fill:'rgba(127,127,127,.14)',radius:radius,stroke:'rgba(127,127,127,.35)',strokeWidth:2});
   return mk({type:'photo',src:d.src,x:x,y:y,w:w,h:h,radius:radius,zoom:1,offX:0,offY:0});
 }
-function priceBlock(L,d,pal,box,opts){
-  opts=opts||{};
-  if(d.price){
-    L.push(mk({type:'text',text:d.price,x:box.x,y:box.y+(opts.priceDy||0),w:box.w,h:box.ph||box.h*.55,
-      size:opts.priceSize||box.w*.14,weight:900,color:opts.priceColor||pal.accent,align:'center',valign:'middle',font:FONT_DEF}));
-  }
-  if(d.old){
-    L.push(mk({type:'text',text:d.old,x:box.x,y:box.y+(opts.oldDy||box.h*.62),w:box.w,h:box.h*.28,
-      size:opts.oldSize||box.w*.075,weight:600,color:opts.oldColor||pal.muted,align:'center',valign:'middle',font:FONT_DEF}));
-  }
-}
 function badgeLayer(d,pal,x,y,size){
   if(!d.badge)return null;
   return mk({type:'badge',text:d.badge,bg:pal.accent,color:'#ffffff',size:size,x:x,y:y,w:size*4,h:size*2,autoW:true,radius:size*.45,font:FONT_DEF});
 }
-
-/* 1 · Классическая центральная */
 function comp1(W,H,pal,d){
   const L=[];
   const b=badgeLayer(d,pal,W*.06,H*.035,W*.036);if(b)L.push(b);
@@ -1103,7 +1168,6 @@ function comp1(W,H,pal,d){
   if(d.brand)L.push(mk({type:'text',text:d.brand.toUpperCase(),x:W*.1,y:H*.945,w:W*.8,h:H*.03,size:W*.022,weight:700,color:pal.muted,align:'center',valign:'middle',font:FONT_DEF,letterSpacing:W*.006}));
   return{width:W,height:H,background:pal.tint,layers:L};
 }
-/* 2 · Асимметричная */
 function comp2(W,H,pal,d){
   const L=[];
   L.push(mk({type:'rect',x:W*.58,y:0,w:W*.42,h:H,fill:pal.tint,radius:0}));
@@ -1121,7 +1185,6 @@ function comp2(W,H,pal,d){
   if(d.brand)L.push(mk({type:'text',text:d.brand.toUpperCase(),x:W*.63,y:H*.935,w:W*.3,h:H*.03,size:W*.02,weight:700,color:pal.muted,align:'left',valign:'middle',font:FONT_DEF,letterSpacing:W*.005}));
   return{width:W,height:H,background:'#ffffff',layers:L};
 }
-/* 3 · Вертикальная тёмная */
 function comp3(W,H,pal,d){
   const L=[];
   L.push(photoLayer(d,W*.06,H*.05,W*.88,H*.5,W*.03));
@@ -1141,7 +1204,6 @@ function comp3(W,H,pal,d){
   if(d.brand)L.push(mk({type:'text',text:d.brand.toUpperCase(),x:W*.1,y:H*.955,w:W*.8,h:H*.026,size:W*.019,weight:700,color:'#8b93a3',align:'center',valign:'middle',font:FONT_DEF,letterSpacing:W*.006}));
   return{width:W,height:H,background:pal.dark,layers:L};
 }
-/* 4 · Модульная диагональная */
 function comp4(W,H,pal,d){
   const L=[];
   L.push(mk({type:'rect',x:-W*.1,y:H*.78,w:W*1.2,h:H*.14,fill:pal.accent,opacity:.15,radius:0,rotation:-8}));
@@ -1175,8 +1237,399 @@ function generateDocs(W,H){
   const pal=buildPalette(App.analysis,App.variantSeed);
   return COMP_DEFS.map(c=>({name:c.name,desc:c.desc,doc:c.fn(W,H,pal,d)}));
 }
+
+/* ================= ВЫДЕЛЕНИЕ: лассо и волшебная палочка ================= */
+const Sel={
+  mode:null,
+  target:null,
+  maskCanvas:null,
+  wandTolerance:32,
+  lassoPoints:[],
+  lassoDrawing:false,
+  baseMask:null,
+  previewTransform:null
+};
+
+function isPhotoLocked(){return !Sel.target||Sel.target.locked;}
+
+function enterSelectMode(mode){
+  if(!App.doc){toast('Сначала откройте макет','error');return;}
+  const L=App.sel;
+  if(!L||L.type!=='photo'){toast('Сначала выберите слой ФОТО — лассо и палочка работают только с фото','error');return;}
+  if(L.locked){toast('Слой заблокирован','error');return;}
+  Sel.mode=mode;
+  Sel.target=L;
+  Sel.maskCanvas=null;
+  Sel.lassoPoints=[];
+  Sel.lassoDrawing=false;
+  const sb=$('#selbar');if(sb)sb.classList.add('on');
+  const tw=$('#tolWrap');if(tw)tw.style.display=mode==='wand'?'':'none';
+  const info=$('#selInfo');if(info)info.textContent=mode==='lasso'?'Обведите область мышью':'Кликните по цвету фона';
+  const lt=$('#lassoTool'),wt=$('#wandTool');
+  if(lt)lt.classList.toggle('active',mode==='lasso');
+  if(wt)wt.classList.toggle('active',mode==='wand');
+  ed.canvas.style.cursor=mode==='lasso'?'crosshair':'copy';
+  toast(mode==='lasso'?'Лассо: обведите лишнее и нажмите «Удалить»':'Палочка: кликните по цвету, задайте «Допуск» ползунком','info');
+  requestRender();
+}
+function exitSelectMode(silent){
+  if(!Sel.mode&&!Sel.maskCanvas)return;
+  Sel.mode=null;Sel.target=null;Sel.maskCanvas=null;Sel.lassoPoints=[];
+  Sel.lassoDrawing=false;Sel.baseMask=null;
+  const sb=$('#selbar');if(sb)sb.classList.remove('on');
+  const lt=$('#lassoTool'),wt=$('#wandTool');
+  if(lt)lt.classList.remove('active');
+  if(wt)wt.classList.remove('active');
+  ed.canvas.style.cursor='';
+  if(!silent){requestRender();}
+  renderEditor();
+}
+
+function drawSelectionPreview(ctx){
+  if(!Sel.mode||!Sel.target)return;
+  if(Sel.mode==='lasso'&&Sel.lassoPoints.length>1){
+    const L=Sel.target;
+    const cx=L.x+L.w/2,cy=L.y+L.h/2,th=(L.rotation||0)*Math.PI/180;
+    const co=Math.cos(th),si=Math.sin(th);
+    ctx.save();
+    ctx.beginPath();
+    let first=true;
+    for(const p of Sel.lassoPoints){
+      const lx=(p.x-cx)*co+(p.y-cy)*si;
+      const ly=-(p.x-cx)*si+(p.y-cy)*co;
+      const dx=L.x+L.w/2+lx;
+      const dy=L.y+L.h/2+ly;
+      if(first){ctx.moveTo(dx,dy);first=false;}
+      else ctx.lineTo(dx,dy);
+    }
+    ctx.closePath();
+    ctx.strokeStyle='rgba(79,110,247,.95)';
+    ctx.fillStyle='rgba(79,110,247,.18)';
+    ctx.lineWidth=1.6/App.zoom;
+    ctx.setLineDash([6/App.zoom,4/App.zoom]);
+    ctx.fill();ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  if(Sel.maskCanvas){
+    const L=Sel.target;
+    ctx.save();
+    ctx.translate(L.x+L.w/2,L.y+L.h/2);
+    ctx.rotate((L.rotation||0)*Math.PI/180);
+    ctx.globalAlpha=.55;
+    const tmp=document.createElement('canvas');
+    tmp.width=Sel.maskCanvas.width;tmp.height=Sel.maskCanvas.height;
+    const tc=tmp.getContext('2d');
+    tc.drawImage(Sel.maskCanvas,0,0);
+    tc.globalCompositeOperation='source-in';
+    tc.fillStyle='rgba(239,68,68,1)';tc.fillRect(0,0,tmp.width,tmp.height);
+    ctx.drawImage(tmp,-L.w/2,-L.h/2,L.w,L.h);
+    ctx.restore();
+  }
+}
+
+function lassoToMask(){
+  const L=Sel.target;if(!L)return null;
+  const w=Math.max(1,Math.round(L.w)),h=Math.max(1,Math.round(L.h));
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d');
+  if(!Sel.lassoPoints.length)return null;
+  const cx=L.x+L.w/2,cy=L.y+L.h/2,th=(L.rotation||0)*Math.PI/180;
+  const co=Math.cos(th),si=Math.sin(th);
+  ctx.fillStyle='#ffffff';
+  ctx.beginPath();
+  let first=true;
+  for(const p of Sel.lassoPoints){
+    const lx=(p.x-cx)*co+(p.y-cy)*si;
+    const ly=-(p.x-cx)*si+(p.y-cy)*co;
+    const px=lx+w/2,py=ly+h/2;
+    if(first){ctx.moveTo(px,py);first=false;}
+    else ctx.lineTo(px,py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  return cv;
+}
+
+async function wandMaskAt(docPt){
+  const L=Sel.target;if(!L)return null;
+  const im=getImg(S(L.src));
+  if(!im.complete||!im.naturalWidth)return null;
+  const cx=L.x+L.w/2,cy=L.y+L.h/2,th=(L.rotation||0)*Math.PI/180;
+  const lx=(docPt.x-cx)*Math.cos(th)+(docPt.y-cy)*Math.sin(th);
+  const ly=-(docPt.x-cx)*Math.sin(th)+(docPt.y-cy)*Math.cos(th);
+  const w=L.w,h=L.h,zoom=L.zoom||1,ox=L.offX||0,oy=L.offY||0;
+  const iw=im.naturalWidth,ih=im.naturalHeight;
+  const s=Math.max(w/iw,h/ih)*zoom;
+  const dw=iw*s,dh=ih*s;
+  const px=(-w/2)+((w-dw)/2)+ox;
+  const py=(-h/2)+((h-dh)/2)+oy;
+  const ux=((lx-px)/dw)*iw;
+  const uy=((ly-py)/dh)*ih;
+  if(ux<0||uy<0||ux>=iw||uy>=ih){toast('Клик мимо фото','error');return null;}
+  const base=document.createElement('canvas');base.width=Math.max(1,Math.round(w));base.height=Math.max(1,Math.round(h));
+  const bctx=base.getContext('2d');
+  bctx.drawImage(im,px+w/2,py+h/2,dw,dh);
+  const data=bctx.getImageData(0,0,base.width,base.height);
+  const W=base.width,H=base.height,pix=data.data;
+  const sx=Math.round(ux*(dw/iw)+(px+w/2)),sy=Math.round(uy*(dh/ih)+(py+h/2));
+  if(sx<0||sy<0||sx>=W||sy>=H){toast('Клик мимо фото','error');return null;}
+  const idx=(sy*W+sx)*4;
+  const tr=pix[idx],tg=pix[idx+1],tb=pix[idx+2],ta=pix[idx+3];
+  const tol=Sel.wandTolerance;
+  const tolSq=tol*tol*3;
+  const mask=document.createElement('canvas');mask.width=W;mask.height=H;
+  const mctx=mask.getContext('2d');
+  const out=mctx.createImageData(W,H);
+  const od=out.data;
+  const visited=new Uint8Array(W*H);
+  const stack=[sy*W+sx];
+  while(stack.length){
+    const p=stack.pop();
+    if(visited[p])continue;
+    visited[p]=1;
+    const i4=p*4;
+    const dr=pix[i4]-tr,dg=pix[i4+1]-tg,db=pix[i4+2]-tb,da=pix[i4+3]-ta;
+    if(dr*dr+dg*dg+db*db+da*da>tolSq)continue;
+    od[i4]=255;od[i4+1]=255;od[i4+2]=255;od[i4+3]=255;
+    const x=p%W,y=(p/W)|0;
+    if(x>0)stack.push(p-1);
+    if(x<W-1)stack.push(p+1);
+    if(y>0)stack.push(p-W);
+    if(y<H-1)stack.push(p+W);
+  }
+  mctx.putImageData(out,0,0);
+  return mask;
+}
+
+function mergeMask(a,b){
+  if(!a)return b;
+  if(!b)return a;
+  const cv=document.createElement('canvas');
+  cv.width=Math.max(a.width,b.width);cv.height=Math.max(a.height,b.height);
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(a,0,0);ctx.drawImage(b,0,0);
+  return cv;
+}
+function invertMask(mask){
+  const cv=document.createElement('canvas');
+  cv.width=mask.width;cv.height=mask.height;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.globalCompositeOperation='destination-out';
+  ctx.drawImage(mask,0,0);
+  return cv;
+}
+
+function commitMask(mode){
+  const L=Sel.target;if(!L||!Sel.maskCanvas){toast('Выделение пустое','error');return;}
+  pushHistory();
+  const prev=L.eraseMask;
+  let baseMask=null;
+  if(prev){
+    const im=getEraseMask(prev);
+    if(im.complete&&im.naturalWidth){
+      baseMask=document.createElement('canvas');
+      baseMask.width=Math.max(1,Math.round(L.w));baseMask.height=Math.max(1,Math.round(L.h));
+      baseMask.getContext('2d').drawImage(im,0,0,baseMask.width,baseMask.height);
+    }
+  }
+  let finalMask=Sel.maskCanvas;
+  if(mode==='keep')finalMask=invertMask(finalMask);
+  if(baseMask)finalMask=mergeMask(baseMask,finalMask);
+  const dataURL=finalMask.toDataURL('image/png');
+  eraseMaskCache.delete(dataURL);
+  L.eraseMask=dataURL;
+  Sel.maskCanvas=null;Sel.lassoPoints=[];
+  renderEditor();renderPropsPanel();renderLayersPanel();scheduleAutosave();
+  toast(mode==='keep'?'Оставлено только выделенное':'Выделенное удалено','success');
+}
+function clearMaskForLayer(){
+  const L=App.sel;
+  if(!L||L.type!=='photo'){toast('Выберите слой ФОТО','error');return;}
+  if(!L.eraseMask){toast('У этого фото нет удалённого фона','info');return;}
+  pushHistory();
+  eraseMaskCache.delete(L.eraseMask);
+  delete L.eraseMask;
+  renderEditor();renderPropsPanel();scheduleAutosave();
+  toast('Удаление фона сброшено — фото снова целое','success');
+}
+
+function selPointerDown(e){
+  if(!Sel.mode||!Sel.target)return false;
+  const pt=toDocPt(e);
+  if(Sel.mode==='lasso'){
+    Sel.lassoPoints=[pt];
+    Sel.lassoDrawing=true;
+    try{ed.canvas.setPointerCapture(e.pointerId);}catch(err){}
+    requestRender();
+    return true;
+  }
+  if(Sel.mode==='wand'){
+    wandMaskAt(pt).then(m=>{
+      if(!m)return;
+      Sel.maskCanvas=mergeMask(Sel.maskCanvas,m);
+      requestRender();
+      const info=$('#selInfo');
+      if(info){
+        const d=m.getContext('2d').getImageData(0,0,m.width,m.height).data;
+        let c=0;for(let i=3;i<d.length;i+=4)if(d[i]>0)c++;
+        const pct=Math.round(100*c/(m.width*m.height));
+        info.textContent='Выделено: '+pct+'%  ·  нажмите «Удалить»';
+      }
+    });
+    return true;
+  }
+  return false;
+}
+function selPointerMove(e){
+  if(!Sel.mode||!Sel.target)return false;
+  if(Sel.mode==='lasso'&&Sel.lassoDrawing){
+    const pt=toDocPt(e);
+    Sel.lassoPoints.push(pt);
+    requestRender();
+    return true;
+  }
+  return false;
+}
+function selPointerUp(e){
+  if(!Sel.mode)return false;
+  if(Sel.mode==='lasso'&&Sel.lassoDrawing){
+    Sel.lassoDrawing=false;
+    if(Sel.lassoPoints.length>2){
+      const m=lassoToMask();
+      if(m){
+        Sel.maskCanvas=mergeMask(Sel.maskCanvas,m);
+        const info=$('#selInfo');
+        if(info)info.textContent='Выделено лассо — нажмите «Удалить»';
+      }
+    }
+    Sel.lassoPoints=[];
+    requestRender();
+    return true;
+  }
+  return false;
+}
+
+function bindSelbar(){
+  const sb=$('#selbar');if(!sb)return;
+  $('#selErase').onclick=()=>commitMask('erase');
+  $('#selKeep').onclick=()=>commitMask('keep');
+  $('#selInvert').onclick=()=>{
+    if(!Sel.maskCanvas){toast('Сначала что-нибудь выделите','error');return;}
+    Sel.maskCanvas=invertMask(Sel.maskCanvas);
+    requestRender();
+    toast('Выделение инвертировано');
+  };
+  $('#selClear').onclick=()=>{
+    Sel.maskCanvas=null;Sel.lassoPoints=[];
+    requestRender();
+    const info=$('#selInfo');if(info)info.textContent='—';
+  };
+  $('#selExit').onclick=()=>exitSelectMode(false);
+  $('#tolRange').oninput=e=>{
+    Sel.wandTolerance=+e.target.value;
+    const v=$('#tolVal');if(v)v.textContent=Sel.wandTolerance;
+  };
+}
+
+/* ================= РЕЖИМ «В РАМКУ» ================= */
+const FrameMode={
+  active:false,
+  photoId:null,
+  apply(shapeId){
+    const photo=layerById(this.photoId);
+    const shape=layerById(shapeId);
+    if(!photo||photo.type!=='photo'){toast('Фото-слой потерян','error');this.exit();return;}
+    if(!shape||(shape.type!=='rect'&&shape.type!=='ellipse')){toast('Кликните по «Рамке» или «Кругу»','error');return;}
+    if(shape.locked){toast('Фигура заблокирована — снимите замок','error');return;}
+    pushHistory();
+    photo.x=shape.x;
+    photo.y=shape.y;
+    photo.w=shape.w;
+    photo.h=shape.h;
+    photo.rotation=shape.rotation||0;
+    if(photo.maskLayerId===shape.id){
+      toast('Фото уже обрезано этой формой','success');
+      this.exit();renderEditor();renderPropsPanel();scheduleAutosave();return;
+    }
+    photo.maskLayerId=shape.id;
+    delete photo.clipShape;
+    const photoIdx=App.doc.layers.indexOf(photo);
+    const shapeIdx=App.doc.layers.indexOf(shape);
+    if(shape.visible!==false&&shape.fill&&shape.fill!=='none'&&shapeIdx>photoIdx){
+      shape.visible=false;
+      toast('Фигура скрыта, чтобы не закрывать фото (обрезка сохранена). Верните её «глазом» в слоях, если нужна обводка.','success');
+    }else{
+      toast('Фото вставлено в «'+(shape.type==='ellipse'?'Круг':'Рамку')+'» и обрезано по маске. Повторный клик по другой фигуре — сменит маску, Esc — выход.','success');
+    }
+    renderEditor();renderLayersPanel();renderPropsPanel();scheduleAutosave();
+  },
+  enter(){
+    if(!App.doc){toast('Сначала откройте макет','error');return;}
+    const L=App.sel;
+    if(!L||L.type!=='photo'){toast('Сначала выберите слой ФОТО — затем нажмите «В рамку»','error');return;}
+    if(L.locked){toast('Фото-слой заблокирован','error');return;}
+    const shapes=App.doc.layers.filter(l=>(l.type==='rect'||l.type==='ellipse')&&l.visible!==false);
+    if(!shapes.length){
+      toast('На холсте нет «Рамки» или «Круга». Добавьте фигуру кнопкой «+ Рамка» или «+ Круг» и нажмите «В рамку» ещё раз.','error');
+      return;
+    }
+    this.active=true;
+    this.photoId=L.id;
+    const fb=$('#frameBtn');if(fb)fb.classList.add('active');
+    ed.canvas.style.cursor='crosshair';
+    exitSelectMode(true);
+    toast('Кликните по «Рамке» или «Кругу» на холсте — фото вставится в форму и обрежется. Esc — отмена.','info');
+  },
+  exit(silent){
+    if(!this.active)return;
+    this.active=false;
+    this.photoId=null;
+    const fb=$('#frameBtn');if(fb)fb.classList.remove('active');
+    ed.canvas.style.cursor='';
+    if(!silent){
+      requestRender();
+      toast('Режим «В рамку» выключен','info');
+    }
+  }
+};
+function exitFrameMode(silent){FrameMode.exit(silent);}
+
+function framePointerDown(e){
+  if(!FrameMode.active)return false;
+  const pt=toDocPt(e);
+  const ls=App.doc.layers;
+  for(let i=ls.length-1;i>=0;i--){
+    const L=ls[i];
+    if(L.visible===false||L.locked)continue;
+    if(L.type!=='rect'&&L.type!=='ellipse')continue;
+    const th=(L.rotation||0)*Math.PI/180;
+    const dx=pt.x-(L.x+L.w/2),dy=pt.y-(L.y+L.h/2);
+    const lx=dx*Math.cos(th)+dy*Math.sin(th);
+    const ly=-dx*Math.sin(th)+dy*Math.cos(th);
+    let inside=false;
+    if(L.type==='ellipse'){
+      const ex=lx/(L.w/2),ey=ly/(L.h/2);
+      inside=(ex*ex+ey*ey)<=1.02;
+    }else{
+      const rx=Math.max(0,Math.min(L.radius||0,L.w/2,L.h/2));
+      const px=Math.abs(lx),py=Math.abs(ly);
+      const bw=L.w/2,bh=L.h/2;
+      if(px>bw||py>bh)inside=false;
+      else if(rx>0){
+        const ix=px-(bw-rx),iy=py-(bh-rx);
+        inside=!(ix>0&&iy>0&&(ix*ix+iy*iy>rx*rx));
+      }else inside=true;
+    }
+    if(inside){FrameMode.apply(L.id);return true;}
+  }
+  toast('Не попали по фигуре. Кликните точнее по «Рамке» или «Кругу».','error');
+  return true;
+}
+
 /* ================= Графический редактор ================= */
-const ed={canvas:null,ctx:null,wrap:null,g:null,grid:false,ptrs:new Map()};
+const ed={canvas:null,ctx:null,wrap:null,g:null,grid:false,spiral:false,spiralRot:0,golden:false,goldenRot:0,ptrs:new Map()};
 const HANDLES=['nw','n','ne','e','se','s','sw','w','rot'];
 const HANDLE_CUR={nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize',rot:'grab'};
 let rafPend=false,keyUndoArmed=false;
@@ -1202,7 +1655,6 @@ function initEditor(){
   ta.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();ta.blur();}});
 }
 
-/* ---- координаты ---- */
 function toDocPt(e){
   const r=ed.canvas.getBoundingClientRect();
   return{x:(e.clientX-r.left)/App.zoom,y:(e.clientY-r.top)/App.zoom};
@@ -1215,7 +1667,7 @@ function toLocal(pt,L){
 function layerAt(pt){
   const ls=App.doc.layers;
   for(let i=ls.length-1;i>=0;i--){
-    const L=ls[i];if(L.visible===false)continue;
+    const L=ls[i];if(L.visible===false||L.locked)continue;
     const p=toLocal(pt,L);
     if(p.x>=-L.w/2-2&&p.x<=L.w/2+2&&p.y>=-L.h/2-2&&p.y<=L.h/2+2)return L;
   }
@@ -1228,7 +1680,7 @@ function handlePos(L,h){
   return{x:map[h][0],y:map[h][1]};
 }
 function hitHandle(pt){
-  const L=App.sel;if(!L||L.visible===false)return null;
+  const L=App.sel;if(!L||L.visible===false||L.locked)return null;
   const loc=toLocal(pt,L),r=12/App.zoom;
   const rp=handlePos(L,'rot');
   if(Math.hypot(loc.x-rp.x,loc.y-rp.y)<=r)return'rot';
@@ -1240,7 +1692,6 @@ function hitHandle(pt){
   return null;
 }
 
-/* ---- рендер ---- */
 function renderEditor(){
   const c=ed.canvas;if(!c)return;
   const empty=$('#edEmpty');if(empty)empty.style.display=App.doc?'none':'flex';
@@ -1253,7 +1704,10 @@ function renderEditor(){
   ctx.setTransform(dpr*App.zoom,0,0,dpr*App.zoom,0,0);
   renderDocument(ctx,doc);
   if(ed.grid)drawGrid(ctx,doc);
+  if(ed.spiral)drawFibonacciSpiral(ctx,doc);
+  if(ed.golden)drawGoldenSection(ctx,doc);
   drawOverlay(ctx);
+  drawSelectionPreview(ctx);
   const zv=$('#zoomVal');if(zv)zv.textContent=Math.round(App.zoom*100)+'%';
 }
 function drawGrid(ctx,doc){
@@ -1265,8 +1719,230 @@ function drawGrid(ctx,doc){
   }
   ctx.restore();
 }
+
+/* ============ Золотая спираль Фибоначчи (строго по холсту) ============ */
+function drawFibonacciSpiral(ctx,doc){
+  const fib=[1,1];
+  while(fib[fib.length-1]+fib[fib.length-2]<10000){
+    fib.push(fib[fib.length-1]+fib[fib.length-2]);
+  }
+
+  /* Строим квадраты от меньшего к большему, как на классических иллюстрациях. */
+  let squares=[];
+  {
+    const dirs=['right','up','left','down'];
+    let curL=0,curT=0,curR=fib[0],curB=fib[0];
+    squares.push({x:0,y:0,w:fib[0]});
+    for(let i=1;i<fib.length;i++){
+      const s=fib[i];
+      const dir=dirs[(i-1)%4];
+      let q;
+      if(dir==='right'){q={x:curR,y:curT,w:s};curR=curR+s;if(curB-curT<s)curB=curT+s;}
+      else if(dir==='up'){q={x:curR-s,y:curT-s,w:s};curT=curT-s;if(curR-curL<s)curL=curR-s;}
+      else if(dir==='left'){q={x:curL-s,y:curB-s,w:s};curL=curL-s;if(curB-curT<s)curT=curB-s;}
+      else{q={x:curL,y:curB,w:s};curB=curB+s;if(curR-curL<s)curR=curL+s;}
+      squares.push(q);
+    }
+  }
+
+  /* bounding box */
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const q of squares){
+    if(q.x<minX)minX=q.x;
+    if(q.y<minY)minY=q.y;
+    if(q.x+q.w>maxX)maxX=q.x+q.w;
+    if(q.y+q.w>maxY)maxY=q.y+q.w;
+  }
+  const bboxW=maxX-minX,bboxH=maxY-minY;
+
+  /* Спираль вписывается в холст так, чтобы она занимала ровно max(W/bboxW, H/bboxH)
+     по КОРОТКОЙ стороне (спираль строго по холсту), либо по длинной (как на картинке «Мона Лиза»).
+     Возьмём min — чтобы гарантированно не вылезти за пределы холста, но с сохранением пропорции. */
+  const k=Math.min(doc.width/bboxW,doc.height/bboxH);
+  const cx=doc.width/2,cy=doc.height/2;
+  const bboxCx=(minX+maxX)/2,bboxCy=(minY+maxY)/2;
+  const rot=(ed.spiralRot||0)*Math.PI/180;
+  const co=Math.cos(rot),si=Math.sin(rot);
+  const toScreen=(px,py)=>{
+    const mx=(px-bboxCx)*k;
+    const my=(py-bboxCy)*k;
+    const rx=mx*co-my*si;
+    const ry=mx*si+my*co;
+    return{cx:cx+rx,cy:cy+ry};
+  };
+
+  ctx.save();
+  ctx.lineWidth=1.6/App.zoom;
+  ctx.strokeStyle='rgba(245,158,11,.9)';
+  ctx.fillStyle='rgba(245,158,11,.08)';
+
+  /* Квадраты */
+  for(const q of squares){
+    const a=toScreen(q.x,q.y);
+    const b=toScreen(q.x+q.w,q.y);
+    const c=toScreen(q.x+q.w,q.y+q.w);
+    const d=toScreen(q.x,q.y+q.w);
+    ctx.beginPath();
+    ctx.moveTo(a.cx,a.cy);
+    ctx.lineTo(b.cx,b.cy);
+    ctx.lineTo(c.cx,c.cy);
+    ctx.lineTo(d.cx,d.cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  /* Дуги спирали: для каждого квадрата — дуга 90° с радиусом = стороне квадрата.
+     Правильный внутренний угол — тот, который «не общий» с соседом и лежит на внутренней стороне.
+     Логика:
+       - Если next справа  → дуга от нижней стороны к правой, центр — ЛВ-угол q.
+       - Если next сверху  → дуга от левой стороны к верхней, центр — ПН-угол q.
+       - Если next слева   → дуга от верхней стороны к левой, центр — ПВ-угол q.
+       - Если next снизу   → дуга от правой стороны к нижней, центр — ЛН-угол q.
+  */
+  for(let i=0;i<squares.length-1;i++){
+    const q=squares[i];
+    const next=squares[i+1];
+    let sideDir;
+    if(next.x>=q.x+q.w-0.01)sideDir='right';
+    else if(next.y+next.w<=q.y+0.01)sideDir='up';
+    else if(next.x+next.w<=q.x+0.01)sideDir='left';
+    else sideDir='down';
+
+    let centerPt,a_start,a_end;
+    if(sideDir==='right'){
+      /* центр ЛВ (q.x,q.y+q.w); дуга от левой стороны (угол π/2) к правой-нижней (угол 0)? 
+         Внутренний угол — ЛВ. От нижней стороны (0) к правой (π/2)? Нет, посмотрим:
+         q стоит левее next, значит next приклеен справа. Тогда внутренний угол — ПВ (q.x+q.w, q.y) НЕВЕРНО.
+         Действительно, для классической спирали: q (текущий), next справа. Дуга идёт из левого-НИЖНЕГО
+         угла квадрата q, радиус q.w, угол от π/2 (низ) к 0 (право)? 
+         Нет. Радиус=стороне квадрата. Внутренний угол — тот, из которого дуга рисуется.
+         Для квадрата q, next справа — дуга соединяет левую и нижнюю стороны.
+         Значит центр — правый-верхний угол, дуга идёт от левой стороны (угол π) к нижней (угол π/2). */
+      centerPt={x:q.x+q.w,y:q.y};
+      a_start=Math.PI;
+      a_end=Math.PI*0.5;
+    }else if(sideDir==='up'){
+      /* next сверху. Дуга соединяет нижнюю и правую стороны. Центр — ЛВ. */
+      centerPt={x:q.x,y:q.y+q.w};
+      a_start=Math.PI*1.5;
+      a_end=Math.PI;
+    }else if(sideDir==='left'){
+      /* next слева. Дуга соединяет верхнюю и правую стороны. Центр — ЛН. */
+      centerPt={x:q.x,y:q.y};
+      a_start=Math.PI*0.5;
+      a_end=0;
+    }else{
+      /* next снизу. Дуга соединяет левую и верхнюю стороны. Центр — ПН. */
+      centerPt={x:q.x+q.w,y:q.y+q.w};
+      a_start=0;
+      a_end=Math.PI*1.5;
+    }
+
+    const c0=toScreen(centerPt.x,centerPt.y);
+    const rr=q.w*k;
+    /* Проверим, что углы действительно на 90°, иначе нормализуем */
+    let da=a_end-a_start;
+    while(da>Math.PI)da-=Math.PI*2;
+    while(da<-Math.PI)da+=Math.PI*2;
+    const anticlock=da>0;
+    ctx.beginPath();
+    ctx.arc(c0.cx,c0.cy,rr,a_start,a_end,anticlock);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ============ Золотое сечение (φ-сетка строго по холсту) ============ */
+function drawGoldenSection(ctx,doc){
+  const PHI=(1+Math.sqrt(5))/2;
+  const W=doc.width,H=doc.height;
+  const horizontal=W/H>=1;
+  let rw,rh;
+  if(horizontal){
+    rw=W;rh=W/PHI;
+    if(rh>H){rh=H;rw=H*PHI;}
+  }else{
+    rh=H;rw=H/PHI;
+    if(rw>W){rw=W;rh=W/PHI;}
+  }
+  const ox=0,oy=0;
+  const rot=(ed.goldenRot||0)*Math.PI/180;
+  const cxc=W/2,cyc=H/2;
+
+  const rects=[];
+  const buildRects=(x,y,w,h,depth)=>{
+    rects.push({x,y,w,h,depth});
+    if(depth>=6)return;
+    if(w>h){
+      buildRects(x,y,h,h,depth+1);
+      buildRects(x+h,y,w-h,h,depth+1);
+    }else{
+      buildRects(x,y,w,w,depth+1);
+      buildRects(x,y+w,w,h-w,depth+1);
+    }
+  };
+  buildRects(ox,oy,rw,rh,0);
+
+  ctx.save();
+  ctx.translate(cxc,cyc);
+  ctx.rotate(rot);
+  ctx.translate(-cxc,-cyc);
+
+  const lw=Math.max(1,1.6/App.zoom);
+  for(const r of rects){
+    if(r.w<=1||r.h<=1)continue;
+    const alpha=0.35+0.1*Math.min(r.depth,4);
+    ctx.lineWidth=r.depth===0?lw*1.6:lw;
+    ctx.strokeStyle='rgba(245,158,11,'+(r.depth===0?0.95:alpha)+')';
+    ctx.setLineDash(r.depth===0?[]:[4/App.zoom,3/App.zoom]);
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
+    ctx.setLineDash([]);
+    if(r.depth===0){
+      ctx.fillStyle='rgba(245,158,11,.03)';
+      ctx.fillRect(r.x,r.y,r.w,r.h);
+    }
+  }
+
+  ctx.lineWidth=lw*1.2;
+  ctx.strokeStyle='rgba(245,158,11,.85)';
+  ctx.setLineDash([8/App.zoom,5/App.zoom]);
+  ctx.beginPath();
+  ctx.moveTo(ox,oy);
+  ctx.lineTo(ox+rw,oy+rh);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ox+rw,oy);
+  ctx.lineTo(ox,oy+rh);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const px1=ox+rw*0.382,px2=ox+rw*0.618;
+  const py1=oy+rh*0.382,py2=oy+rh*0.618;
+  ctx.fillStyle='rgba(245,158,11,.9)';
+  ctx.strokeStyle='rgba(245,158,11,.9)';
+  ctx.lineWidth=lw;
+  ctx.beginPath();
+  ctx.moveTo(px1,oy);ctx.lineTo(px1,oy+rh);
+  ctx.moveTo(px2,oy);ctx.lineTo(px2,oy+rh);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(ox,py1);ctx.lineTo(ox+rw,py1);
+  ctx.moveTo(ox,py2);ctx.lineTo(ox+rw,py2);
+  ctx.stroke();
+
+  for(const pt of [[ox,oy],[ox+rw,oy],[ox+rw,oy+rh],[ox,oy+rh]]){
+    ctx.beginPath();
+    ctx.arc(pt[0],pt[1],3/App.zoom,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawOverlay(ctx){
   const L=App.sel;if(!L||L.visible===false)return;
+  if(Sel.mode)return;
   const z=App.zoom;
   const acc=(getComputedStyle(document.documentElement).getPropertyValue('--accent')||'').trim()||'#4f6ef7';
   ctx.save();
@@ -1334,10 +2010,15 @@ function onWheel(e){
   }
 }
 
-/* ---- жесты ---- */
 function snapSel(){const L=App.sel;return L?{x:L.x,y:L.y,w:L.w,h:L.h,rotation:L.rotation||0}:null;}
 function onDown(e){
   if(!App.doc)return;
+  if(FrameMode.active){
+    if(framePointerDown(e))return;
+  }
+  if(Sel.mode){
+    if(selPointerDown(e))return;
+  }
   try{ed.canvas.setPointerCapture(e.pointerId);}catch(err){}
   const pt=toDocPt(e);
   ed.ptrs.set(e.pointerId,pt);
@@ -1358,12 +2039,44 @@ function onDown(e){
   else ed.g={mode:'pan',startPt:pt,moved:false,pushed:false,l0:parseFloat(ed.canvas.style.left)||0,t0:parseFloat(ed.canvas.style.top)||0};
 }
 function onMove(e){
+  if(FrameMode.active){
+    const pt=toDocPt(e);
+    const ls=App.doc?App.doc.layers:[];
+    let overShape=false;
+    for(let i=ls.length-1;i>=0;i--){
+      const L=ls[i];
+      if(L.visible===false||L.locked)continue;
+      if(L.type!=='rect'&&L.type!=='ellipse')continue;
+      const th=(L.rotation||0)*Math.PI/180;
+      const dx=pt.x-(L.x+L.w/2),dy=pt.y-(L.y+L.h/2);
+      const lx=dx*Math.cos(th)+dy*Math.sin(th);
+      const ly=-dx*Math.sin(th)+dy*Math.cos(th);
+      const rx=Math.max(0,Math.min(L.radius||0,L.w/2,L.h/2));
+      const px=Math.abs(lx),py=Math.abs(ly);
+      const bw=L.w/2,bh=L.h/2;
+      let inside=false;
+      if(L.type==='ellipse'){
+        const ex=lx/bw,ey=ly/bh;
+        inside=(ex*ex+ey*ey)<=1.02;
+      }else if(px>bw||py>bh)inside=false;
+      else if(rx>0){
+        const ix=px-(bw-rx),iy=py-(bh-rx);
+        inside=!(ix>0&&iy>0&&(ix*ix+iy*iy>rx*rx));
+      }else inside=true;
+      if(inside){overShape=true;break;}
+    }
+    ed.canvas.style.cursor=overShape?'zoom-in':'crosshair';
+    return;
+  }
+  if(Sel.mode){
+    if(selPointerMove(e))return;
+  }
   const pt=toDocPt(e);
   if(ed.ptrs.has(e.pointerId))ed.ptrs.set(e.pointerId,pt);
   if(!App.doc)return;
   const g=ed.g;
   if(!g){
-    if(e.pointerType==='mouse'){
+    if(e.pointerType==='mouse'&&!Sel.mode){
       const h=hitHandle(pt);
       ed.canvas.style.cursor=h?HANDLE_CUR[h]:(layerAt(pt)?'move':'default');
     }
@@ -1398,10 +2111,12 @@ function onMove(e){
   requestRender();
 }
 function onUp(e){
+  if(FrameMode.active){}
+  if(Sel.mode&&selPointerUp(e))return;
   ed.ptrs.delete(e.pointerId);
   const g=ed.g;if(!g)return;
   if(g.mode==='pinch'){if(ed.ptrs.size<2)ed.g=null;return;}
-  if(g.mode==='pan'&&!g.moved)select(null);
+  if(g.mode==='pan'&&!g.moved&&!Sel.mode)select(null);
   ed.g=null;
   if(g.pushed){renderLayersPanel();renderPropsPanel();scheduleAutosave();}
 }
@@ -1431,12 +2146,11 @@ function applyResize(L,handle,pt,aspect){
   L.w=w2;L.h=h2;L.x=wx-w2/2;L.y=wy-h2/2;
 }
 function onDbl(e){
-  if(!App.doc)return;
+  if(!App.doc||Sel.mode||FrameMode.active)return;
   const L=layerAt(toDocPt(e));
-  if(L&&(L.type==='text'||L.type==='badge')){select(L);openTextEditor(L);}
+  if(L&&(L.type==='text'||L.type==='badge')){select(L);if(!L.locked)openTextEditor(L);}
 }
 
-/* ---- правка текста на холсте ---- */
 function openTextEditor(L){
   const ta=$('#textEdit');if(!ta)return;
   const z=App.zoom;
@@ -1469,7 +2183,6 @@ function closeTextEditor(){
   requestRender();renderLayersPanel();
 }
 
-/* ---- история ---- */
 function pushRawSnapshot(s){
   App.history.push(s);
   if(App.history.length>60)App.history.shift();
@@ -1493,8 +2206,10 @@ function afterDocSwap(){
   renderEditor();renderLayersPanel();renderPropsPanel();scheduleAutosave();
 }
 
-/* ---- слои ---- */
 function select(L){
+  if(L&&L.locked){toast('Слой заблокирован — снимите замок, чтобы редактировать','error');return;}
+  if(Sel.mode&&L!==Sel.target){exitSelectMode(true);}
+  if(FrameMode.active&&(!L||L.type!=='photo')){FrameMode.exit(true);}
   App.sel=L||null;
   const mb=$('#maskBtn');
   if(mb)mb.classList.toggle('active',!!(L&&L.type==='photo'&&(L.maskLayerId||L.clipShape)));
@@ -1559,6 +2274,7 @@ function addPhotoLayer(){
   });
 }
 function removeLayer(L){
+  if(!L||L.locked){if(L&&L.locked)toast('Слой заблокирован','error');return;}
   const ls=App.doc.layers,i=ls.indexOf(L);
   if(i<0)return;
   ls.splice(i,1);
@@ -1570,9 +2286,12 @@ function removeLayer(L){
     }
   }
   if(App.sel===L)App.sel=null;
+  if(Sel.target===L)exitSelectMode(true);
+  if(FrameMode.active&&FrameMode.photoId===L.id)FrameMode.exit(true);
   renderEditor();renderLayersPanel();renderPropsPanel();scheduleAutosave();
 }
 function duplicateLayer(L){
+  if(L.locked){toast('Слой заблокирован','error');return;}
   const c=deep(L);c.id=uid();c.x+=18;c.y+=18;
   const ls=App.doc.layers,i=ls.indexOf(L);
   ls.splice(i+1,0,c);select(c);
@@ -1580,6 +2299,7 @@ function duplicateLayer(L){
 }
 function moveLayer(dir){
   const ls=App.doc.layers;if(!App.sel)return;
+  if(App.sel.locked){toast('Слой заблокирован','error');return;}
   const i=ls.indexOf(App.sel),j=clamp(i+dir,0,ls.length-1);
   if(i===j)return;
   pushHistory();ls.splice(j,0,ls.splice(i,1)[0]);
@@ -1587,6 +2307,7 @@ function moveLayer(dir){
 }
 function layerOrder(op){
   const ls=App.doc.layers;if(!App.sel)return;
+  if(App.sel.locked){toast('Слой заблокирован','error');return;}
   const i=ls.indexOf(App.sel);
   pushHistory();ls.splice(i,1);
   if(op==='front')ls.push(App.sel);else ls.unshift(App.sel);
@@ -1604,7 +2325,6 @@ function fileToDataURL(file,cb){
   r.readAsDataURL(file);
 }
 
-/* ---- панели ---- */
 function renderLayersPanel(){
   const box=$('#layersList');if(!box)return;
   if(!App.doc){box.innerHTML='<div class="empty small">Нет документа</div>';return;}
@@ -1614,7 +2334,7 @@ function renderLayersPanel(){
   for(let i=ls.length-1;i>=0;i--){
     const L=ls[i];
     const row=document.createElement('div');
-    row.className='layer-row'+(App.sel===L?' sel':'');
+    row.className='layer-row'+(App.sel===L?' sel':'')+(L.locked?' locked':'');
     const label=(L.type==='text'||L.type==='badge')?String(L.text||'').slice(0,24):(TYPE_LABEL[L.type]||L.type);
     const ty=document.createElement('span');ty.className='lr-type';ty.textContent=TYPE_LABEL[L.type]||L.type;
     const nm=document.createElement('span');nm.className='lr-name';nm.textContent=label;nm.title=label;
@@ -1623,6 +2343,12 @@ function renderLayersPanel(){
       const b=document.createElement('button');b.className='mini-btn'+(cls?' '+cls:'');
       b.textContent=txt;b.title=title;b.onclick=ev=>{ev.stopPropagation();fn();};return b;
     };
+    btns.appendChild(mkBtn(L.locked?'🔒':'🔓','Заблокировать/разблокировать','lock'+(L.locked?' on':''),()=>{
+      L.locked=!L.locked;
+      if(L.locked&&App.sel===L)App.sel=null;
+      renderEditor();renderLayersPanel();renderPropsPanel();scheduleAutosave();
+      toast(L.locked?'Слой заблокирован':'Слой разблокирован');
+    }));
     btns.appendChild(mkBtn(L.visible===false?'○':'●','Показать/скрыть','',()=>{L.visible=L.visible===false?true:false;pushHistory();renderEditor();renderLayersPanel();scheduleAutosave();}));
     btns.appendChild(mkBtn('↑','Выше','',()=>moveLayer(1)));
     btns.appendChild(mkBtn('↓','Ниже','',()=>moveLayer(-1)));
@@ -1653,6 +2379,14 @@ function renderPropsPanel(){
       +'<div class="hint" style="margin-top:10px">'+App.doc.width+'×'+App.doc.height+' px · слоёв: '+App.doc.layers.length+'</div>'
       +'<div class="hint" style="margin-top:8px">Выберите слой на холсте или в списке «Слои». Двойной клик по тексту — быстрая правка. Стрелки двигают, Del удаляет, Ctrl+Z отменяет.</div>';
     bindProps(box);return;
+  }
+  if(L.locked){
+    box.innerHTML='<div class="prop-title">Слой заблокирован</div>'
+      +'<div class="hint" style="margin-top:8px">Снимите замок в панели «Слои», чтобы редактировать свойства.</div>'
+      +'<div class="row" style="margin-top:12px"><button class="btn sm" id="unlockBtn">Разблокировать</button></div>';
+    const ub=box.querySelector('#unlockBtn');
+    if(ub)ub.onclick=()=>{L.locked=false;renderLayersPanel();renderPropsPanel();renderEditor();scheduleAutosave();toast('Слой разблокирован');};
+    return;
   }
   let h='<div class="prop-title">'+(TYPE_LABEL[L.type]||L.type)+'</div>';
   h+=propNum('X','x',Math.round(L.x))+propNum('Y','y',Math.round(L.y));
@@ -1708,7 +2442,14 @@ function renderPropsPanel(){
       h+='<div class="row tight" style="margin-top:8px"><button class="btn sm" data-act="fitmask">Подогнать под маску</button><button class="btn sm" data-act="hidemask">Скрыть маску</button></div>';
       h+='<div class="hint" style="margin-top:6px">Фото обрезано формой слоя-маски. Если маска с заливкой закрывает фото — нажмите «Скрыть маску» или погасите её глазом в списке слоёв (обрезка сохранится).</div>';
     }else{
-      h+='<div class="hint" style="margin-top:6px">Нарисуйте «Круг» или «Рамку» на холсте, выберите её здесь — фото обрежется по её форме. Кнопка «Подогнать» впишет фото точно в маску.</div>';
+      h+='<div class="hint" style="margin-top:6px">Нарисуйте «Круг» или «Рамку» на холсте, выберите её здесь — фото обрежется по её форме. Кнопка «Подогнать» впишет фото точно в маску. Или нажмите «В рамку» в тулбаре и кликните по фигуре — фото само вставится и обрежется.</div>';
+    }
+    h+='<div class="prop-title" style="margin-top:12px">Удаление фона</div>';
+    if(L.eraseMask){
+      h+='<div class="hint">Удаление активно. Кнопка ниже вернёт фото в исходный вид.</div>';
+      h+='<div class="row tight" style="margin-top:8px"><button class="btn sm danger" data-act="erase-reset">Сбросить всё удаление</button></div>';
+    }else{
+      h+='<div class="hint">Используйте «Лассо» или «Палочку» в левом тулбаре, чтобы удалить лишний фон.</div>';
     }
   }
   h+='<div class="prop-title">Порядок</div><div class="row" style="flex-wrap:wrap">'
@@ -1733,7 +2474,6 @@ function bindProps(box){
       if(prop==='maskLayerId'){
         if(v){
           const M=layerById(v);
-          /* если маска лежит ВЫШЕ фото и залита — она закроет фото: скрываем её, обрезка сохранится */
           if(M&&M.visible!==false&&M.fill&&M.fill!=='none'
              &&App.doc.layers.indexOf(M)>App.doc.layers.indexOf(L)){
             M.visible=false;renderLayersPanel();
@@ -1758,6 +2498,7 @@ function bindProps(box){
       if(a==='hidemask'){const M=layerById(L.maskLayerId);if(M){M.visible=false;renderLayersPanel();}}
       if(a==='front')layerOrder('front');
       if(a==='back')layerOrder('back');
+      if(a==='erase-reset'){if(L.eraseMask){eraseMaskCache.delete(L.eraseMask);delete L.eraseMask;toast('Удаление фона сброшено','success');}}
       requestRender();renderPropsPanel();
     };
   });
@@ -1774,18 +2515,67 @@ function setSideTab(t){
 function bindEditorUI(){
   initEditor();
   bindKeyboard();
+  bindSelbar();
   $('#addText').onclick=addText;
   $('#addBadge').onclick=addBadge;
   $('#addRect').onclick=addRect;
   $('#addEllipse').onclick=addEllipse;
   $('#addPhoto').onclick=addPhotoLayer;
   $('#maskBtn').onclick=maskAction;
+  $('#frameBtn').onclick=()=>{
+    if(FrameMode.active){FrameMode.exit(false);}
+    else FrameMode.enter();
+  };
+  $('#lassoTool').onclick=()=>{
+    if(FrameMode.active)FrameMode.exit(true);
+    if(Sel.mode==='lasso')exitSelectMode(false);
+    else enterSelectMode('lasso');
+  };
+  $('#wandTool').onclick=()=>{
+    if(FrameMode.active)FrameMode.exit(true);
+    if(Sel.mode==='wand')exitSelectMode(false);
+    else enterSelectMode('wand');
+  };
+  $('#eraseReset').onclick=clearMaskForLayer;
   $('#undoBtn').onclick=undo;
   $('#redoBtn').onclick=redo;
   $('#zoomIn').onclick=()=>zoomStep(1.2);
   $('#zoomOut').onclick=()=>zoomStep(1/1.2);
   $('#zoomFit').onclick=fitZoom;
   $('#gridBtn').onclick=()=>{ed.grid=!ed.grid;$('#gridBtn').classList.toggle('active',ed.grid);renderEditor();};
+  $('#spiralBtn').onclick=()=>{
+    if(!ed.spiral){
+      ed.spiral=true;ed.spiralRot=0;
+      $('#spiralBtn').classList.add('active');
+      toast('Спираль Фибоначчи включена (строго по холсту, от угла к углу).','success');
+    }else{
+      ed.spiral=false;ed.spiralRot=0;
+      $('#spiralBtn').classList.remove('active');
+      toast('Спираль Фибоначчи выключена.','info');
+    }
+    renderEditor();
+  };
+  /* Alt+клик = поворот на 90° */
+  $('#spiralBtn').addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    if(ed.spiral){ed.spiralRot=(ed.spiralRot+90)%360;renderEditor();toast('Спираль повёрнута на '+ed.spiralRot+'°.','info');}
+  });
+  $('#goldenBtn').onclick=()=>{
+    if(!ed.golden){
+      ed.golden=true;ed.goldenRot=0;
+      $('#goldenBtn').classList.add('active');
+      toast('Золотое сечение включено: φ-сетка строго вписана в холст.','success');
+    }else{
+      ed.golden=false;ed.goldenRot=0;
+      $('#goldenBtn').classList.remove('active');
+      toast('Золотое сечение выключено.','info');
+    }
+    renderEditor();
+  };
+  $('#goldenBtn').addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    if(ed.golden){ed.goldenRot=(ed.goldenRot+90)%360;renderEditor();toast('Золотое сечение повёрнуто на '+ed.goldenRot+'°.','info');}
+  });
   $('#sideBtn').onclick=()=>{$('#edSide').classList.toggle('open');setTimeout(()=>renderEditor(),300);};
   $('#tabLayers').onclick=()=>setSideTab('layers');
   $('#tabProps').onclick=()=>setSideTab('props');
@@ -1797,12 +2587,39 @@ function bindKeyboard(){
     if(tag==='input'||tag==='textarea'||tag==='select')return;
     if(!App.doc)return;
     const k=e.key.toLowerCase();
+    if(e.key==='Escape'&&FrameMode.active){e.preventDefault();FrameMode.exit(false);return;}
+    if(e.key==='Escape'&&Sel.mode){e.preventDefault();exitSelectMode(false);return;}
+    if(k==='m'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      if(App.sel&&App.sel.type==='photo'&&!App.sel.locked){e.preventDefault();FrameMode.enter();}
+      return;
+    }
+    if(k==='f'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      e.preventDefault();
+      ed.grid=!ed.grid;
+      $('#gridBtn').classList.toggle('active',ed.grid);
+      renderEditor();return;
+    }
+    if(k==='g'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      e.preventDefault();
+      if(!ed.spiral){ed.spiral=true;ed.spiralRot=0;}
+      else ed.spiralRot=(ed.spiralRot+90)%360;
+      $('#spiralBtn').classList.add('active');
+      renderEditor();return;
+    }
+    if(k==='h'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      e.preventDefault();
+      if(!ed.golden){ed.golden=true;ed.goldenRot=0;}
+      else ed.goldenRot=(ed.goldenRot+90)%360;
+      $('#goldenBtn').classList.add('active');
+      renderEditor();return;
+    }
     if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
     if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();redo();return;}
     if((e.ctrlKey||e.metaKey)&&k==='d'){e.preventDefault();if(App.sel){pushHistory();duplicateLayer(App.sel);}return;}
-    if(e.key==='Delete'||e.key==='Backspace'){if(App.sel){e.preventDefault();pushHistory();removeLayer(App.sel);}return;}
+    if(e.key==='Delete'||e.key==='Backspace'){if(App.sel){e.preventDefault();if(App.sel.locked){toast('Слой заблокирован','error');return;}pushHistory();removeLayer(App.sel);}return;}
     if(e.key==='Escape'){closeTextEditor();select(null);return;}
     if(e.key.indexOf('Arrow')===0&&App.sel){
+      if(App.sel.locked)return;
       e.preventDefault();
       const s=e.shiftKey?10:1;
       const d={ArrowLeft:[-s,0],ArrowRight:[s,0],ArrowUp:[0,-s],ArrowDown:[0,s]}[e.key];
@@ -1821,7 +2638,6 @@ const FORMATS={
   square:{name:'Квадрат',w:1440,h:1440}
 };
 
-/* ---- студия: загрузка фото ---- */
 function addFiles(files){
   const list=Array.from(files).filter(f=>/^image\//.test(f.type||'')).slice(0,12);
   if(!list.length){toast('Поддерживаются JPG, PNG и WEBP','error');return;}
@@ -1889,7 +2705,6 @@ function bindStudio(){
   };
 }
 
-/* ---- AI-действия студии ---- */
 async function runAnalysis(){
   if(!AI.isReady()){switchView('settings');return;}
   if(!App.photos.length){toast('Сначала загрузите фото товара','error');return;}
@@ -1941,7 +2756,6 @@ async function runCopyGen(){
   btn.disabled=!AI.isReady();btn.textContent='Сгенерировать тексты (AI)';
 }
 
-/* ---- кроп фото ---- */
 function openCrop(photoId){
   const p=App.photos.find(x=>x.id===photoId);
   if(!p){toast('Фото не найдено','error');return;}
@@ -2016,7 +2830,6 @@ function openCrop(photoId){
   });
 }
 
-/* ---- композиции ---- */
 function generateCompositions(silent){
   if(!App.photos.length){toast('Сначала загрузите фото товара','error');switchView('studio');return;}
   const fmt=FORMATS[App.docFormat]||FORMATS.ozon;
@@ -2053,12 +2866,13 @@ function openDoc(i){
   const item=App.docs[i];if(!item)return;
   App.doc=deep(item.doc);
   App.history=[];App.redo=[];App.sel=null;
+  exitSelectMode(true);
+  exitFrameMode(true);
   renderLayersPanel();renderPropsPanel();
   switchView('editor');
   toast('Открыт вариант «'+item.name+'». Двойной клик по тексту — быстрая правка.');
 }
 
-/* ---- экспорт ---- */
 function renderExportView(){
   const cards=$('#fmtCards');if(!cards)return;
   if(!App.doc){$('#exBody').style.display='none';$('#exEmpty').style.display='';cards.innerHTML='';return;}
@@ -2138,7 +2952,6 @@ function bindExport(){
   $('#exToEditor').onclick=()=>switchView('editor');
 }
 
-/* ---- настройки AI ---- */
 function populateSettingsForm(){
   const c=Settings.data;
   $('#setProvider').value=c.provider;
@@ -2192,7 +3005,6 @@ function bindSettings(){
   };
 }
 
-/* ---- запуск ---- */
 async function init(){
   Settings.load();applyTheme();
   bindTopNav();bindStudio();bindEditorUI();bindExport();bindProjects();bindSettings();
@@ -2213,4 +3025,3 @@ else init();
 </script>
 </body>
 </html>
-
